@@ -4,12 +4,7 @@ class TankBot < Tank
   def move
     super
     if rand(1 / PROBABILITY_OF_ROTATION) == 0
-      self.position = case rand(4)
-      when 0 then Position::TOP
-      when 1 then Position::BOTTOM
-      when 2 then Position::LEFT
-      when 3 then Position::RIGHT
-      end
+      self.position = Position::LIST[rand(4)]
     end
   end
 
