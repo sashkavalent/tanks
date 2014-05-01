@@ -12,9 +12,5 @@ module Position
   BOTTOM = Math::PI / 2
   LEFT = Math::PI
   RIGHT = 0
-  # TOP = :top
-  # BOTTOM = :bottom
-  # LEFT = :left
-  # RIGHT = :right
   LIST = [TOP, BOTTOM, LEFT, RIGHT]
 end

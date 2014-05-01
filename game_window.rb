@@ -1,8 +1,3 @@
-class Numeric
-   def radians_to_vec2
-       CP::Vec2.new(Math::cos(self), Math::sin(self))
-   end
-end
 class GameWindow < Gosu::Window
   SCREEN_WIDTH = 640
   SCREEN_HEIGHT = 480
@@ -11,45 +6,16 @@ class GameWindow < Gosu::Window
   attr_reader :borders, :space
   def initialize
     super(SCREEN_WIDTH, SCREEN_HEIGHT, false)
-    # @background_image = Gosu::Image.new(self, "examples/media/Space.png", true)
-    self.caption = "Gosu Tutorial Game"
+    self.caption = "Yearly 8"
     @font = Gosu::Font.new(self, Gosu::default_font_name, 20)
-
-    @borders = OpenStruct.new(top: 0, bottom: height,
-      left: 0, right: width)
-
-    @bots = []
-    # 4.times { @bots << TankBot.new(self, rand(width), rand(height)) }
-    @space = CP::Space.new
     @score = 0
-    @space.add_collision_func(:tank, :tank) do |tank_1, tank_2|
-      @score += 10
-    end
-       # fill = Magick::TextureFill.new(Magick::ImageList.new("black:"))
-       background = Magick::Image.new(SCREEN_WIDTH, SCREEN_HEIGHT) { self.background_color = 'black'}
-       setup_borders(background)
-       @background_image = Gosu::Image.new(self, background, true) # turn the image into a Gosu one
-    @player = Tank.new(self, width / 2, height / 2)
-    dist = 100
-    bots_places = [[dist, dist], [SCREEN_WIDTH - dist, dist],
-      [SCREEN_WIDTH - dist, SCREEN_HEIGHT - dist], [dist, SCREEN_HEIGHT - dist]]
-    @bots = bots_places.map { |place| TankBot.new(self, place[0], place[1]) }
-  end
+    @space = CP::Space.new
+    @space.damping = 0.2
 
-  def free_space?(x, y, direction)
-    case direction
-    when Position::TOP
-      return false if y < @borders.top
-    when Position::BOTTOM
-      return false if y > @borders.bottom
-    when Position::LEFT
-      return false if x < @borders.left
-    when Position::RIGHT
-      return false if x > @borders.right
-    end
-    true
+    setup_background
+    setup_tanks
+    setup_collisions
   end
-
 
   def straight_square_vertices(size)
     vertices = []
@@ -62,24 +28,51 @@ class GameWindow < Gosu::Window
     return vertices
   end
 
-  # Produces the image of a polygon.
-  # def polygon_image(vertices)
-  #   box_image = Magick::Image.new(Constants::EDGE_SIZE  * 2, Constants::EDGE_SIZE * 2) { self.background_color = 'transparent' }
-  #   gc = Magick::Draw.new
-  #   gc.stroke('red')
-  #   gc.fill('plum')
-  #   shift = Constants::EDGE_SIZE / Math.sqrt(2)
-  #   draw_vertices = vertices.map { |v| [v.x + shift, v.y + shift] }.flatten
-  #   # draw_vertices = vertices
-  #   # gc.rotate(45)
-  #   gc.polygon(*draw_vertices)
-  #   gc.draw(box_image)
-  #   return Gosu::Image.new(self, box_image, false)
-  # end
   private
+
+  def setup_tanks
+    @player = Tank.new(self, width / 2, height / 2)
+    @bots = []
+    dist = 100
+    bots_places = [[dist, dist], [SCREEN_WIDTH - dist, dist],
+      [SCREEN_WIDTH - dist, SCREEN_HEIGHT - dist], [dist, SCREEN_HEIGHT - dist]]
+    @bots = bots_places.map { |place| TankBot.new(self, place[0], place[1]) }
+  end
+
+  def setup_collisions
+    @space.add_collision_func(Tank.to_sym, TankBot.to_sym) do |tank_shape, bot_shape|
+      @score += 10
+    end
+    @space.add_collision_func(Tank.to_sym, Bullet.to_sym) do |tank_shape, bullet_shape|
+      false
+    end
+
+    @space.add_collision_func(:wall, Bullet.to_sym) do |wall_shape, bullet_shape|
+      @space.add_post_step_callback(bullet_shape) do |space, key|
+        delete_figure_from_array(bullet_shape, @player.bullets)
+      end
+    end
+
+    @space.add_collision_func(Bullet.to_sym, TankBot.to_sym) do |bullet_shape, bot_shape|
+      @space.add_post_step_callback(bullet_shape) do |space, key|
+        delete_figure_from_array(bullet_shape, @player.bullets)
+        delete_figure_from_array(bot_shape, @bots)
+      end
+    end
+
+  end
+
+  def setup_background
+    background = Magick::Image.new(SCREEN_WIDTH, SCREEN_HEIGHT) do
+      self.background_color = 'black'
+    end
+    setup_borders(background)
+    @background_image = Gosu::Image.new(self, background, true)
+  end
+
   BORDERS_INTERVAL = 5.0
   SCREEN_SIZE = SCREEN_WIDTH + SCREEN_HEIGHT - 2.0 * BORDERS_INTERVAL
-  BORDERS_COUNT = 66.0
+  BORDERS_COUNT = 30.0
   BORDER_WIDTH = SCREEN_SIZE / BORDERS_COUNT - BORDERS_INTERVAL
 
   def setup_borders(background)
@@ -105,10 +98,18 @@ class GameWindow < Gosu::Window
     gc.draw(background)
  end
 
+  def delete_figure_from_array(figure_shape, array)
+    figure = array.find { |figure| figure.shape == figure_shape }
+    @space.remove_shape(figure.shape)
+    @space.remove_body(figure.body)
+    array.delete(figure)
+  end
+
   def create_border(body, shape_vertices, gc, x, y)
     shape = CP::Shape::Poly.new(body, shape_vertices, CP::Vec2.new(x, y))
     shape.e = 1
     shape.u = 1
+    shape.collision_type = :wall
     @space.add_shape(shape)
     draw_vertices = shape_vertices.map { |v| [x + v.x, y + v.y] }.flatten
     gc.polygon(*draw_vertices)
@@ -117,36 +118,36 @@ class GameWindow < Gosu::Window
   def update
     @space.step(Constants::TICK)
     bullets_move
-    # bots_move
+    bots_move
     player_move
   end
 
   def player_move
     case go = true
     when button_down?(Gosu::KbUp)
-      @player.body.a = Position::TOP
+      @player.position = Position::TOP
     when button_down?(Gosu::KbDown)
-      @player.body.a = Position::BOTTOM
+      @player.position = Position::BOTTOM
     when button_down?(Gosu::KbLeft)
-      @player.body.a = Position::LEFT
+      @player.position = Position::LEFT
     when button_down?(Gosu::KbRight)
-      @player.body.a = Position::RIGHT
+      @player.position = Position::RIGHT
     else
       go = false
     end
-    @player.shape.body.reset_forces
+    @player.reset_forces
     @player.move if go
   end
 
   def bots_move
     @bots.each do |bot|
+      bot.reset_forces
       bot.move
-      bot.shape.body.reset_forces
     end
   end
 
   def bullets_move
-    @player.bullets.each { |bullet| bullet.move }
+    @player.bullets.each(&:move)
   end
 
   def draw
@@ -159,6 +160,7 @@ class GameWindow < Gosu::Window
 
   def button_down(id)
     if id == Gosu::KbEscape then close end
-    if id == Gosu::KbSpace then binding.pry;@player.fire end
+    if id == Gosu::KbSpace then @player.fire end
+    if id == Gosu::KbLeftControl then binding.pry end
   end
 end
