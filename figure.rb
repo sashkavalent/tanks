@@ -7,6 +7,15 @@ class Figure
     get_in_shape(window.space, x, y)
   end
 
+  def serialize
+    { x: x, y: y, position: position}
+  end
+
+  def deserialize(serialized_info)
+    @body.p.x, @body.p.y = serialized_info['x'], serialized_info['y']
+    @body.a = serialized_info['position']
+  end
+
   def reset_forces
     @body.reset_forces
   end
@@ -28,7 +37,7 @@ class Figure
   end
 
   def move
-    @body.apply_force((@body.a.radians_to_vec2 * 500.0), CP::Vec2.new(0.0, 0.0))
+    @body.apply_force((@body.a.radians_to_vec2 * 2500.0), CP::Vec2.new(0.0, 0.0))
     # @body.v = @body.a.radians_to_vec2 * 100.0
   end
 

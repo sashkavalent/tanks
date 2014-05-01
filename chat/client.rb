@@ -2,14 +2,14 @@ require 'socket'      # Sockets are in standard library
 
 hostname = 'localhost'
 port = 2000
-s = TCPSocket.open(hostname, port)
+socket = TCPSocket.open(hostname, port)
 Thread.new do
   while (line = gets) != "q\n"
-    s.puts line
+    socket.puts line
   end
-  s.close
+  socket.close
 end
 
-while line = s.gets
+while line = socket.gets
   puts line
 end

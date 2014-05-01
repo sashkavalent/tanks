@@ -1,6 +1,8 @@
 module Constants
   EDGE_SIZE = 45
   TICK = 1.0/60.0
+  PORT = 2000
+  HOSTNAME = 'localhost'
 end
 
 module ZOrder

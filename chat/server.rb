@@ -7,10 +7,10 @@ loop do
   clients << server.accept
   Thread.new(clients.last) do |client|
     while line = client.gets
-      binding.pry
       clients.each { |c| c.puts line if c != client }
       puts clients.count
     end
+    binding.pry
     client.close
   end
 end

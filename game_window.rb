@@ -4,6 +4,7 @@ class GameWindow < Gosu::Window
   TICK = 1.0/60.0
 
   attr_reader :borders, :space
+  attr_accessor :server, :client
   def initialize
     super(SCREEN_WIDTH, SCREEN_HEIGHT, false)
     self.caption = "Yearly 8"
@@ -30,9 +31,17 @@ class GameWindow < Gosu::Window
 
   private
 
+  def client?
+    !!@server
+  end
+
+  def server?
+    !!@client
+  end
+
   def setup_tanks
     @player = Tank.new(self, width / 2, height / 2)
-    @bots = []
+    @friend = Tank.new(self, width / 2 + 50, height / 2)
     dist = 100
     bots_places = [[dist, dist], [SCREEN_WIDTH - dist, dist],
       [SCREEN_WIDTH - dist, SCREEN_HEIGHT - dist], [dist, SCREEN_HEIGHT - dist]]
@@ -105,6 +114,10 @@ class GameWindow < Gosu::Window
     array.delete(figure)
   end
 
+  def global_state
+    @global_state || {}
+  end
+
   def create_border(body, shape_vertices, gc, x, y)
     shape = CP::Shape::Poly.new(body, shape_vertices, CP::Vec2.new(x, y))
     shape.e = 1
@@ -117,26 +130,69 @@ class GameWindow < Gosu::Window
 
   def update
     @space.step(Constants::TICK)
-    bullets_move
-    bots_move
-    player_move
+    if server?
+      state = {}
+      state['player'] = @player.serialize
+      state['friend'] = @friend.serialize
+      state['bots'] = @bots.map(&:serialize)
+
+      @client.puts(state.to_json)
+      @global_state = JSON.parse(@client.gets)
+      bullets_move
+      bots_move
+      players_move
+    elsif client?
+      state = JSON.parse(@server.gets)
+      @friend.deserialize(state['player'])
+      @player.deserialize(state['friend'])
+      @bots.each.with_index { |bot, i| bot.deserialize(state['bots'][i]) }
+      players_move
+      @server.puts global_state.to_json
+    end
   end
 
-  def player_move
-    case go = true
-    when button_down?(Gosu::KbUp)
-      @player.position = Position::TOP
-    when button_down?(Gosu::KbDown)
-      @player.position = Position::BOTTOM
-    when button_down?(Gosu::KbLeft)
-      @player.position = Position::LEFT
-    when button_down?(Gosu::KbRight)
-      @player.position = Position::RIGHT
-    else
-      go = false
+  def players_move
+    if server?
+      case go = true
+      when button_down?(Gosu::KbUp)
+        @player.position = Position::TOP
+      when button_down?(Gosu::KbDown)
+        @player.position = Position::BOTTOM
+      when button_down?(Gosu::KbLeft)
+        @player.position = Position::LEFT
+      when button_down?(Gosu::KbRight)
+        @player.position = Position::RIGHT
+      else
+        go = false
+      end
+      @player.reset_forces
+      @player.move if go
+
+      go = true
+      case global_state['key']
+      when 'up' then @friend.position = Position::TOP
+      when 'down' then @friend.position = Position::BOTTOM
+      when 'left' then @friend.position = Position::LEFT
+      when 'right' then @friend.position = Position::RIGHT
+      else
+        go = false
+      end
+      @friend.reset_forces
+      @friend.move if go
+
+    elsif client?
+      key = case (go = true)
+      when button_down?(Gosu::KbUp) then 'up'
+      when button_down?(Gosu::KbDown) then 'down'
+      when button_down?(Gosu::KbLeft) then 'left'
+      when button_down?(Gosu::KbRight) then 'right'
+      else
+        go = false
+        nil
+      end
+      @global_state = global_state
+      @global_state['key'] = key if go
     end
-    @player.reset_forces
-    @player.move if go
   end
 
   def bots_move
@@ -153,6 +209,7 @@ class GameWindow < Gosu::Window
   def draw
     @background_image.draw(0, 0, ZOrder::Background)
     @player.draw
+    @friend.draw
     @bots.each(&:draw)
     @player.bullets.each(&:draw)
     @font.draw("Score: #{@score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xffffff00)
