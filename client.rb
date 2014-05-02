@@ -3,7 +3,7 @@ require 'socket'
 
 window = GameWindow.new
 begin
-  window.server = TCPSocket.open(Constants::HOSTNAME, Constants::PORT)
+  window.server = TCPSocket.open(ARGV.first || Constants::HOSTNAME, Constants::PORT)
 rescue Errno::ECONNREFUSED => e
   sleep 1
   retry

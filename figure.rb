@@ -37,7 +37,7 @@ class Figure
   end
 
   def move
-    @body.apply_force((@body.a.radians_to_vec2 * 2500.0), CP::Vec2.new(0.0, 0.0))
+    @body.apply_force((@body.a.radians_to_vec2 * 500.0), CP::Vec2.new(0.0, 0.0))
     # @body.v = @body.a.radians_to_vec2 * 100.0
   end
 
