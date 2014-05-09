@@ -20,9 +20,6 @@ module RemoteEvent
   end
 
   def fire_event(data)
-    case data
-    when 'c_tank' then @c_tank.fire
-    when 's_tank' then @s_tank.fire
-    end
+    @tanks[data['tank_id']].fire
   end
 end

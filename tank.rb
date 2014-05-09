@@ -12,6 +12,7 @@ class Tank < Figure
   end
 
   def fire
+    @window.server_state['events'] << { event_type: :fire, data: { tank_id: self.id } }
     bullet = Bullet.new(@window, self)
     @bullets << bullet
     bullet
