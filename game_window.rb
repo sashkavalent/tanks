@@ -20,31 +20,18 @@ class GameWindow < Gosu::Window
 
     setup_background
     setup_tanks
-    setup_collisions
+    setup_collisions if server?
     set_caption
   end
 
   private
-
-  def find_figure_by_shape(shape)
-    @tanks.flatten.map { |tank| [tank, tank.bullets] }.flatten.find { |figure| figure.shape == shape }
-  end
-
-  def delete_figure_from_array(figure_shape, array)
-    figure = array.find { |figure| figure.shape == figure_shape }
-    @space.remove_shape(figure.shape)
-    @space.remove_body(figure.body)
-    array.delete(figure)
-  end
 
   def update
     @space.step(Constants::TICK)
     if server?
       @server_state['s_tank'] = @s_tank.serialize
       @server_state['c_tank'] = @c_tank.serialize
-      @server_state['bots'] = @bots.map(&:serialize)
-      @server_state['bullets'] = @tanks.flatten.inject([]) { |res, tank|
-        res << tank.bullets.map(&:serialize) }
+      @server_state['bots'] = bots.map(&:serialize)
       @client.puts(@server_state.to_json)
       @server_state = { 'events' => []}
 
@@ -55,11 +42,10 @@ class GameWindow < Gosu::Window
       @server.puts @client_state.to_json
       @client_state = {}
       @server_state = JSON.parse(@server.gets)
-      @server_state['events'].each { |event|
-        perform_remote_event(event['type'], event['data']) }
+      @server_state['events'].each { |event| perform_remote_event(event) }
       @c_tank.deserialize(@server_state['c_tank'])
       @s_tank.deserialize(@server_state['s_tank'])
-      @server_state['bots'].each.with_index { |bot_state, i| @bots[i].deserialize(bot_state) }
+      @server_state['bots'].each.with_index { |bot_state, i| bots[i].deserialize(bot_state) }
       players_move
     end
     bullets_move
@@ -110,7 +96,7 @@ class GameWindow < Gosu::Window
   end
 
   def bots_move
-    @bots.each do |bot|
+    bots.each do |bot|
       bot.reset_forces
       bot.move
     end
@@ -123,9 +109,7 @@ class GameWindow < Gosu::Window
 
   def draw
     @background_image.draw(0, 0, ZOrder::Background)
-    @s_tank.draw
-    @c_tank.draw
-    @bots.each(&:draw)
+    @tanks.each(&:draw)
     @s_tank.bullets.each(&:draw)
     @c_tank.bullets.each(&:draw)
     @font.draw("Score: #{@score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xffffff00)
@@ -136,13 +120,17 @@ class GameWindow < Gosu::Window
     if id == Gosu::KbSpace
       if server?
         @s_tank.fire
-        @server_state['events'] << { type: :fire, data: :s_tank }
+        @server_state['events'] << { event_type: :fire, data: :s_tank }
       elsif client?
         @c_tank.fire
         @client_state['fire'] = true
       end
     end
     if id == Gosu::KbLeftControl then binding.pry end
+  end
+
+  def bots
+    @tanks.select { |tank| tank.is_a? TankBot }
   end
 
   def client?

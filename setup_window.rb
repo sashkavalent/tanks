@@ -10,13 +10,26 @@ module SetupWindow
   end
 
   def setup_tanks
-    @s_tank = Tank.new(self, width / 2, height / 2)
-    @c_tank = Tank.new(self, width / 2 + 50, height / 2)
+    @s_tank = Tank.new(self, width / 2, height / 2, @tanks)
+    @c_tank = Tank.new(self, width / 2 + 50, height / 2, @tanks)
     dist = 100
     bots_places = [[dist, dist], [SCREEN_WIDTH - dist, dist],
       [SCREEN_WIDTH - dist, SCREEN_HEIGHT - dist], [dist, SCREEN_HEIGHT - dist]]
-    @bots = bots_places.map { |place| TankBot.new(self, place[0], place[1]) }
-    @tanks << @bots << @c_tank << @s_tank
+    bots = bots_places.map { |place| TankBot.new(self, place[0], place[1], @tanks) }
+    @tanks << @c_tank << @s_tank
+    @tanks.concat(bots)
+  end
+
+  def destroy_bullet_event(bullet_shape)
+    bullet = find_figure_by_shape(bullet_shape)
+    if bullet.present?
+      tank_id = bullet.tank_owner.id
+      @server_state['events'] <<
+        { event_type: :destroy,
+          data: { figure_type: :bullet, tank_id: tank_id, bullet_id: bullet.id }
+        }
+      bullet.destroy
+    end
   end
 
   def setup_collisions
@@ -29,19 +42,29 @@ module SetupWindow
 
     @space.add_collision_func(:wall, Bullet.to_sym) do |wall_shape, bullet_shape|
       @space.add_post_step_callback(bullet_shape) do |space, key|
-        find_figure_by_shape(bullet_shape).try(:destroy)
+        destroy_bullet_event(bullet_shape)
       end
     end
 
     @space.add_collision_func(Bullet.to_sym, TankBot.to_sym) do |bullet_shape, bot_shape|
       @space.add_post_step_callback(bullet_shape) do |space, key|
-        find_figure_by_shape(bullet_shape).try(:destroy)
-        # delete_figure_from_array(bullet_shape, @s_tank.bullets)
-        delete_figure_from_array(bot_shape, @bots)
+        destroy_bullet_event(bullet_shape)
+        bot = find_figure_by_shape(bot_shape)
+        if bot.present?
+          @server_state['events'] <<
+            { event_type: :destroy,
+              data: { figure_type: :tank, tank_id: bot.id }
+            }
+          bot.destroy
+        end
       end
       # false
     end
 
+  end
+
+  def find_figure_by_shape(shape)
+    @tanks.map { |tank| [tank, tank.bullets] }.flatten.find { |figure| figure.shape == shape }
   end
 
   def setup_background

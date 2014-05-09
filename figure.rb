@@ -1,13 +1,21 @@
 class Figure
   attr_reader :body, :shape
+  attr_accessor :aggregator
 
-  def initialize(window, x, y, path_to_image)
-    @window = window
+  def initialize(window, x, y, path_to_image, aggregator)
+    @window, @aggregator = window, aggregator
     @image = Gosu::Image.new(window, path_to_image, false)
     get_in_shape(window.space, x, y)
   end
 
+  def id
+    @aggregator.index(self)
+  end
+
   def destroy
+    @window.space.remove_shape(self.shape)
+    @window.space.remove_body(self.body)
+    @aggregator.delete(self)
   end
 
   def serialize
