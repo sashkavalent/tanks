@@ -3,8 +3,8 @@ module RemoteEvent
     case event_type
     when 'fire'
       case data
-      when 'player' then @friend.fire
-      when 'friend' then @player.fire
+      when 'c_tank' then @c_tank.fire
+      when 's_tank' then @s_tank.fire
       end
     end
   end

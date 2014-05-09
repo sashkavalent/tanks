@@ -10,13 +10,13 @@ module SetupWindow
   end
 
   def setup_tanks
-    @player = Tank.new(self, width / 2, height / 2)
-    @friend = Tank.new(self, width / 2 + 50, height / 2)
+    @s_tank = Tank.new(self, width / 2, height / 2)
+    @c_tank = Tank.new(self, width / 2 + 50, height / 2)
     dist = 100
     bots_places = [[dist, dist], [SCREEN_WIDTH - dist, dist],
       [SCREEN_WIDTH - dist, SCREEN_HEIGHT - dist], [dist, SCREEN_HEIGHT - dist]]
     @bots = bots_places.map { |place| TankBot.new(self, place[0], place[1]) }
-    @tanks << @bots << @friend << @player
+    @tanks << @bots << @c_tank << @s_tank
   end
 
   def setup_collisions
@@ -36,7 +36,7 @@ module SetupWindow
     @space.add_collision_func(Bullet.to_sym, TankBot.to_sym) do |bullet_shape, bot_shape|
       @space.add_post_step_callback(bullet_shape) do |space, key|
         find_figure_by_shape(bullet_shape).try(:destroy)
-        # delete_figure_from_array(bullet_shape, @player.bullets)
+        # delete_figure_from_array(bullet_shape, @s_tank.bullets)
         delete_figure_from_array(bot_shape, @bots)
       end
       # false

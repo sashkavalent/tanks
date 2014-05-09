@@ -40,8 +40,8 @@ class GameWindow < Gosu::Window
   def update
     @space.step(Constants::TICK)
     if server?
-      @server_state['player'] = @player.serialize
-      @server_state['friend'] = @friend.serialize
+      @server_state['s_tank'] = @s_tank.serialize
+      @server_state['c_tank'] = @c_tank.serialize
       @server_state['bots'] = @bots.map(&:serialize)
       @server_state['bullets'] = @tanks.flatten.inject([]) { |res, tank|
         res << tank.bullets.map(&:serialize) }
@@ -55,11 +55,11 @@ class GameWindow < Gosu::Window
       @server.puts @client_state.to_json
       @client_state = {}
       @server_state = JSON.parse(@server.gets)
-      @friend.deserialize(@server_state['player'])
-      @player.deserialize(@server_state['friend'])
-      @bots.each.with_index { |bot, i| bot.deserialize(@server_state['bots'][i]) }
       @server_state['events'].each { |event|
         perform_remote_event(event['type'], event['data']) }
+      @c_tank.deserialize(@server_state['c_tank'])
+      @s_tank.deserialize(@server_state['s_tank'])
+      @server_state['bots'].each.with_index { |bot_state, i| @bots[i].deserialize(bot_state) }
       players_move
     end
     bullets_move
@@ -69,31 +69,31 @@ class GameWindow < Gosu::Window
     if server?
       case go = true
       when button_down?(Gosu::KbUp)
-        @player.position = Position::TOP
+        @s_tank.position = Position::TOP
       when button_down?(Gosu::KbDown)
-        @player.position = Position::BOTTOM
+        @s_tank.position = Position::BOTTOM
       when button_down?(Gosu::KbLeft)
-        @player.position = Position::LEFT
+        @s_tank.position = Position::LEFT
       when button_down?(Gosu::KbRight)
-        @player.position = Position::RIGHT
+        @s_tank.position = Position::RIGHT
       else
         go = false
       end
-      @player.reset_forces
-      @player.move if go
+      @s_tank.reset_forces
+      @s_tank.move if go
 
       go = true
       case @client_state['key']
-      when 'up' then @friend.position = Position::TOP
-      when 'down' then @friend.position = Position::BOTTOM
-      when 'left' then @friend.position = Position::LEFT
-      when 'right' then @friend.position = Position::RIGHT
+      when 'up' then @c_tank.position = Position::TOP
+      when 'down' then @c_tank.position = Position::BOTTOM
+      when 'left' then @c_tank.position = Position::LEFT
+      when 'right' then @c_tank.position = Position::RIGHT
       else
         go = false
       end
-      @friend.fire if @client_state['fire'] == true
-      @friend.reset_forces
-      @friend.move if go
+      @c_tank.fire if @client_state['fire'] == true
+      @c_tank.reset_forces
+      @c_tank.move if go
 
     elsif client?
       key = case (go = true)
@@ -117,17 +117,17 @@ class GameWindow < Gosu::Window
   end
 
   def bullets_move
-    @player.bullets.each(&:move)
-    @friend.bullets.each(&:move)
+    @s_tank.bullets.each(&:move)
+    @c_tank.bullets.each(&:move)
   end
 
   def draw
     @background_image.draw(0, 0, ZOrder::Background)
-    @player.draw
-    @friend.draw
+    @s_tank.draw
+    @c_tank.draw
     @bots.each(&:draw)
-    @player.bullets.each(&:draw)
-    @friend.bullets.each(&:draw)
+    @s_tank.bullets.each(&:draw)
+    @c_tank.bullets.each(&:draw)
     @font.draw("Score: #{@score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xffffff00)
   end
 
@@ -135,10 +135,10 @@ class GameWindow < Gosu::Window
     if id == Gosu::KbEscape then close end
     if id == Gosu::KbSpace
       if server?
-        @player.fire
-        @server_state['events'] << { type: :fire, data: :player }
+        @s_tank.fire
+        @server_state['events'] << { type: :fire, data: :s_tank }
       elsif client?
-        @player.fire
+        @c_tank.fire
         @client_state['fire'] = true
       end
     end
