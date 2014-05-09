@@ -1,8 +1,8 @@
 load 'requirements.rb'
-window = GameWindow.new
 
-require 'socket'                # Get sockets from stdlib
-server = TCPServer.open(Constants::PORT)   # Socket to listen on port 2000
-window.client = server.accept
+server = TCPServer.open(Constants::PORT)
+window = GameWindow.new(nil, server.accept)
+
+sleep 0.5
 
 window.show

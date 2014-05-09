@@ -12,7 +12,9 @@ class Tank < Figure
   end
 
   def fire
-    @bullets << Bullet.new(@window, self)
+    bullet = Bullet.new(@window, self)
+    @bullets << bullet
+    bullet
   end
 
 end

@@ -7,6 +7,9 @@ class Figure
     get_in_shape(window.space, x, y)
   end
 
+  def destroy
+  end
+
   def serialize
     { x: x, y: y, position: position}
   end
@@ -37,7 +40,7 @@ class Figure
   end
 
   def move
-    @body.apply_force((@body.a.radians_to_vec2 * 500.0), CP::Vec2.new(0.0, 0.0))
+    @body.apply_force((@body.a.radians_to_vec2 * 700.0), CP::Vec2.new(0.0, 0.0))
     # @body.v = @body.a.radians_to_vec2 * 100.0
   end
 
@@ -49,10 +52,21 @@ class Figure
     to_s.underscore.to_sym
   end
 
+  def self.straight_square_vertices(size)
+    vertices = []
+    sides_number = 4
+    angle_first = - Math::PI / sides_number
+    sides_number.times do |i|
+      angle = angle_first - 2 * Math::PI * i / sides_number
+      vertices << angle.radians_to_vec2() * size / 2 / Math::cos(-angle_first)
+    end
+    return vertices
+  end
+
   private
 
   def get_in_shape(space, x, y)
-    tank_vertices = @window.straight_square_vertices(@image.height)
+    tank_vertices = self.class.straight_square_vertices(@image.height)
     @body = CP::Body.new(1, CP::moment_for_poly(Float::MAX, tank_vertices, CP::Vec2.new(0, 0))) #mass, moment of inertia
     @body.p = CP::Vec2.new(x, y)
     @shape = CP::Shape::Poly.new(@body, tank_vertices, CP::Vec2.new(0, 0))

@@ -7,4 +7,9 @@ class Bullet < Figure
     self.position = tank_owner.position
   end
 
+  def destroy
+    super
+    @tank_owner.bullets.delete(self)
+  end
+
 end
