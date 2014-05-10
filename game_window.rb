@@ -6,7 +6,8 @@ class GameWindow < Gosu::Window
   include RemoteEvent
   TICK = 1.0/60.0
 
-  attr_reader :borders, :space, :server_state
+  attr_accessor :bullets
+  attr_reader :borders, :space, :server_state, :shot
   def initialize(server, client)
     super(SCREEN_WIDTH, SCREEN_HEIGHT, false)
     @server, @client = server, client
@@ -15,13 +16,29 @@ class GameWindow < Gosu::Window
     @space = CP::Space.new
     @space.damping = 0.2
     @tanks = []
+    @bullets = []
     @server_state = { events: []}
     @client_state = {}
+    @bang = Gosu::Sample.new(self, "media/bang.wav")
+    @shot = Gosu::Sample.new(self, "media/shot.wav")
+    @miss = Gosu::Sample.new(self, "media/miss.wav")
+    @battle_city = Gosu::Sample.new(self, "media/battle_city.wav")
+    @battle_city.play
+    # @racing = Gosu::Song.new(self, "media/racing.wav")
+    # @racing.play(true) if server?
 
     setup_background
     setup_tanks
     setup_collisions if server?
     set_caption
+  end
+
+  def client?
+    !!@server
+  end
+
+  def server?
+    !!@client
   end
 
   private
@@ -103,13 +120,15 @@ class GameWindow < Gosu::Window
   end
 
   def bullets_move
-    @tanks.each { |tank| tank.bullets.each(&:move) }
+    # @tanks.each { |tank| tank.bullets.each(&:move) }
+    @bullets.each(&:move)
   end
 
   def draw
     @background_image.draw(0, 0, ZOrder::Background)
     @tanks.each(&:draw)
-    @tanks.each { |tank| tank.bullets.each(&:draw) }
+    @bullets.each(&:draw)
+    # @tanks.each { |tank| tank.bullets.each(&:draw) }
     @font.draw("Score: #{@score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xffffff00)
   end
 
@@ -127,13 +146,5 @@ class GameWindow < Gosu::Window
 
   def bots
     @tanks.select { |tank| tank.is_a? TankBot }
-  end
-
-  def client?
-    !!@server
-  end
-
-  def server?
-    !!@client
   end
 end

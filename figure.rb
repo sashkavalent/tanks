@@ -6,6 +6,7 @@ class Figure
     @window, @aggregator = window, aggregator
     @image = Gosu::Image.new(window, path_to_image, false)
     get_in_shape(window.space, x, y)
+    aggregator << self
   end
 
   def id
@@ -48,7 +49,7 @@ class Figure
   end
 
   def move
-    @body.apply_force((@body.a.radians_to_vec2 * 700.0), CP::Vec2.new(0.0, 0.0))
+    @body.apply_force((@body.a.radians_to_vec2 * 500.0), CP::Vec2.new(0.0, 0.0))
     # @body.v = @body.a.radians_to_vec2 * 100.0
   end
 
@@ -74,11 +75,11 @@ class Figure
   private
 
   def get_in_shape(space, x, y)
-    tank_vertices = self.class.straight_square_vertices(@image.height)
-    @body = CP::Body.new(1, CP::moment_for_poly(Float::MAX, tank_vertices, CP::Vec2.new(0, 0))) #mass, moment of inertia
+    figure_vertices = self.class.straight_square_vertices(@image.height)
+    @body = CP::Body.new(1, CP::moment_for_poly(Float::MAX, figure_vertices, CP::Vec2.new(0, 0))) #mass, moment of inertia
     @body.p = CP::Vec2.new(x, y)
-    @shape = CP::Shape::Poly.new(@body, tank_vertices, CP::Vec2.new(0, 0))
-    @shape.e = 1
+    @shape = CP::Shape::Poly.new(@body, figure_vertices, CP::Vec2.new(0, 0))
+    @shape.e = 0.1
     @shape.u = 1
     @shape.collision_type = @collision_sym || self.class.to_sym
     space.add_body(@body)

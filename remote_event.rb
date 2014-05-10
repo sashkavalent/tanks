@@ -12,8 +12,9 @@ module RemoteEvent
   def destroy_event(data)
     case data['figure_type']
     when 'bullet'
-      tank = @tanks[data['tank_id']]
-      tank.bullets.delete_at(data['bullet_id'])
+      # tank = @tanks[data['tank_id']]
+      # tank.bullets.delete_at(data['bullet_id'])
+      @bullets.delete_at(data['bullet_id'])
     when 'tank'
       @tanks.delete_at(data['tank_id'])
     end
@@ -21,5 +22,7 @@ module RemoteEvent
 
   def fire_event(data)
     @tanks[data['tank_id']].fire
+  rescue
+    binding.pry
   end
 end

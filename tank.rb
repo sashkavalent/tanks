@@ -4,18 +4,30 @@ class Tank < Figure
 
   def initialize(window, x, y, aggregator)
     super(window, x, y, PATH_TO_IMAGE, aggregator)
-    @beep = Gosu::Sample.new(window, 'examples/media/Beep.wav')
 
     @score = 0
     @bullets = []
     position = Position::TOP
   end
 
+  def destroy
+    super
+    @destroyed = true
+  end
+
   def fire
-    @window.server_state['events'] << { event_type: :fire, data: { tank_id: self.id } }
-    bullet = Bullet.new(@window, self)
-    @bullets << bullet
-    bullet
+    if !@destroyed
+      @window.shot.play
+      if @window.server?
+        @window.server_state['events'] << { event_type: :fire, data: { tank_id: self.id } }
+      end
+      bullet = Bullet.new(@window, self)
+      bullet
+    end
+  end
+
+  def height
+    @image.height
   end
 
 end
