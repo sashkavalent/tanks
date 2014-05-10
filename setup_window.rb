@@ -20,7 +20,7 @@ module SetupWindow
     @tanks.concat(bots)
   end
 
-  def destroy_bullet_event(bullet_shape)
+  def destroy_bullet(bullet_shape)
     bullet = find_figure_by_shape(bullet_shape)
     if bullet.present?
       tank_id = bullet.tank_owner.id
@@ -32,33 +32,47 @@ module SetupWindow
     end
   end
 
+  def destroy_tank_and_bullet(bullet_shape, tank_shape)
+    @space.add_post_step_callback(bullet_shape) do |space, key|
+      destroy_bullet(bullet_shape)
+      tank = find_figure_by_shape(tank_shape)
+      if tank.present?
+        @server_state['events'] <<
+          { event_type: :destroy,
+            data: { figure_type: :tank, tank_id: tank.id }
+          }
+        tank.destroy
+      end
+    end
+  end
+
   def setup_collisions
     @space.add_collision_func(Tank.to_sym, TankBot.to_sym) do |tank_shape, bot_shape|
       @score += 10
     end
-    @space.add_collision_func(Tank.to_sym, Bullet.to_sym) do |tank_shape, bullet_shape|
+    @space.add_collision_func(:player_bullet, Tank.to_sym) do |bullet_shape, bot_shape|
+      false
+    end
+    @space.add_collision_func(:bot_bullet, TankBot.to_sym) do |bullet_shape, bot_shape|
       false
     end
 
-    @space.add_collision_func(:wall, Bullet.to_sym) do |wall_shape, bullet_shape|
+    @space.add_collision_func(:wall, :bot_bullet) do |wall_shape, bullet_shape|
       @space.add_post_step_callback(bullet_shape) do |space, key|
-        destroy_bullet_event(bullet_shape)
+        destroy_bullet(bullet_shape)
+      end
+    end
+    @space.add_collision_func(:wall, :player_bullet) do |wall_shape, bullet_shape|
+      @space.add_post_step_callback(bullet_shape) do |space, key|
+        destroy_bullet(bullet_shape)
       end
     end
 
-    @space.add_collision_func(Bullet.to_sym, TankBot.to_sym) do |bullet_shape, bot_shape|
-      @space.add_post_step_callback(bullet_shape) do |space, key|
-        destroy_bullet_event(bullet_shape)
-        bot = find_figure_by_shape(bot_shape)
-        if bot.present?
-          @server_state['events'] <<
-            { event_type: :destroy,
-              data: { figure_type: :tank, tank_id: bot.id }
-            }
-          bot.destroy
-        end
-      end
-      # false
+    @space.add_collision_func(:player_bullet, TankBot.to_sym) do |bullet_shape, tank_shape|
+      destroy_tank_and_bullet(bullet_shape, tank_shape)
+    end
+    @space.add_collision_func(:bot_bullet, Tank.to_sym) do |bullet_shape, tank_shape|
+      destroy_tank_and_bullet(bullet_shape, tank_shape)
     end
 
   end
