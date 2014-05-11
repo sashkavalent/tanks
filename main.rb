@@ -1,3 +1,3 @@
 load 'requirements.rb'
-window = GameWindow.new
+window = GameWindow.new(nil, nil)
 window.show

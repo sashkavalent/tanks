@@ -4,14 +4,40 @@ require_relative 'remote_event'
 class GameWindow < Gosu::Window
   include SetupWindow
   include RemoteEvent
-  TICK = 1.0/60.0
 
   attr_accessor :bullets
-  attr_reader :borders, :space, :server_state, :shot
+  attr_writer :server
+  attr_reader :space, :server_state, :multiplayer
   def initialize(server, client)
     super(SCREEN_WIDTH, SCREEN_HEIGHT, false)
     @server, @client = server, client
-    @font = Gosu::Font.new(self, Gosu::default_font_name, 20)
+    start_menu_mode
+    set_caption
+  end
+
+  def start_menu_mode
+    @mode = :menu
+    @menu = Menu.new(self)
+  end
+
+  def start_client_mode
+    @mode = :ip_input
+    @ip_input = IpInput.new(self)
+  end
+
+  def start_server_mode
+    server = TCPServer.open(Constants::PORT)
+    # Thread.new do
+      @client = server.accept
+      start_game_mode(true)
+    # end
+    # sleep 0.5
+    # window = GameWindow.new(nil, server.accept)
+  end
+
+  def start_game_mode(multiplayer)
+    @multiplayer = multiplayer
+    @mode = :game
     @score = 0
     @space = CP::Space.new
     @space.damping = 0.2
@@ -20,7 +46,6 @@ class GameWindow < Gosu::Window
     @server_state = { events: []}
     @client_state = {}
     @bang = Gosu::Sample.new(self, "media/bang.wav")
-    @shot = Gosu::Sample.new(self, "media/shot.wav")
     @miss = Gosu::Sample.new(self, "media/miss.wav")
     @battle_city = Gosu::Sample.new(self, "media/battle_city.wav")
     @battle_city.play
@@ -28,9 +53,8 @@ class GameWindow < Gosu::Window
     # @racing.play(true) if server?
 
     setup_background
-    setup_tanks
+    setup_tanks(multiplayer)
     setup_collisions if server?
-    set_caption
   end
 
   def client?
@@ -38,34 +62,39 @@ class GameWindow < Gosu::Window
   end
 
   def server?
-    !!@client
+    !!@client || !@multiplayer
   end
 
   private
 
   def update
-    @space.step(Constants::TICK)
-    if server?
-      @server_state['s_tank'] = @s_tank.serialize
-      @server_state['c_tank'] = @c_tank.serialize
-      @server_state['bots'] = bots.map(&:serialize)
-      @client.puts(@server_state.to_json)
-      @server_state = { 'events' => []}
+    case @mode
+    when :game
+      @space.step(Constants::TICK)
+      if server?
+        @server_state['s_tank'] = @s_tank.serialize
+        if @multiplayer
+          @server_state['c_tank'] = @c_tank.serialize
+          @server_state['bots'] = bots.map(&:serialize)
+          @client.puts(@server_state.to_json)
+          @server_state = { 'events' => []}
+          @client_state = JSON.parse(@client.gets)
+        end
 
-      @client_state = JSON.parse(@client.gets)
-      bots_move
-      players_move
-    elsif client?
-      @server.puts @client_state.to_json
-      @client_state = {}
-      @server_state = JSON.parse(@server.gets)
-      @server_state['events'].each { |event| perform_remote_event(event) }
-      @c_tank.deserialize(@server_state['c_tank'])
-      @s_tank.deserialize(@server_state['s_tank'])
-      @server_state['bots'].each.with_index { |bot_state, i| bots[i].deserialize(bot_state) }
-      players_move
+        bots_move
+        players_move
+      elsif client?
+        @server.puts @client_state.to_json
+        @client_state = {}
+        @server_state = JSON.parse(@server.gets)
+        @server_state['events'].each { |event| perform_remote_event(event) }
+        @c_tank.deserialize(@server_state['c_tank'])
+        @s_tank.deserialize(@server_state['s_tank'])
+        @server_state['bots'].each.with_index { |bot_state, i| bots[i].deserialize(bot_state) }
+        players_move
+      end
+      bullets_move
     end
-    bullets_move
   end
 
   def players_move
@@ -85,18 +114,20 @@ class GameWindow < Gosu::Window
       @s_tank.reset_forces
       @s_tank.move if go
 
-      go = true
-      case @client_state['key']
-      when 'up' then @c_tank.position = Position::TOP
-      when 'down' then @c_tank.position = Position::BOTTOM
-      when 'left' then @c_tank.position = Position::LEFT
-      when 'right' then @c_tank.position = Position::RIGHT
-      else
-        go = false
+      if @multiplayer
+        go = true
+        case @client_state['key']
+        when 'up' then @c_tank.position = Position::TOP
+        when 'down' then @c_tank.position = Position::BOTTOM
+        when 'left' then @c_tank.position = Position::LEFT
+        when 'right' then @c_tank.position = Position::RIGHT
+        else
+          go = false
+        end
+        @c_tank.fire if @client_state['fire'] == true
+        @c_tank.reset_forces
+        @c_tank.move if go
       end
-      @c_tank.fire if @client_state['fire'] == true
-      @c_tank.reset_forces
-      @c_tank.move if go
 
     elsif client?
       key = case (go = true)
@@ -120,28 +151,40 @@ class GameWindow < Gosu::Window
   end
 
   def bullets_move
-    # @tanks.each { |tank| tank.bullets.each(&:move) }
     @bullets.each(&:move)
   end
 
   def draw
-    @background_image.draw(0, 0, ZOrder::Background)
-    @tanks.each(&:draw)
-    @bullets.each(&:draw)
-    # @tanks.each { |tank| tank.bullets.each(&:draw) }
-    @font.draw("Score: #{@score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xffffff00)
+    case @mode
+    when :game
+      @background_image.draw(0, 0, ZOrder::Background)
+      @tanks.each(&:draw)
+      @bullets.each(&:draw)
+      # @font.draw("Score: #{@score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xffffff00)
+    when :menu
+      @menu.draw
+    when :ip_input
+      @ip_input.draw
+    end
   end
 
   def button_down(id)
-    if id == Gosu::KbEscape then close end
-    if id == Gosu::KbSpace
-      if server?
-        @s_tank.fire
-      elsif client?
-        @client_state['fire'] = true
-      end
-    end
     if id == Gosu::KbLeftControl then binding.pry end
+    case @mode
+    when :game
+      if id == Gosu::KbEscape then @mode = :menu end
+      if id == Gosu::KbSpace
+        if server?
+          @s_tank.fire
+        elsif client?
+          @client_state['fire'] = true
+        end
+      end
+    when :menu
+      @menu.button_down(id)
+    when :ip_input
+      @ip_input.button_down(id)
+    end
   end
 
   def bots

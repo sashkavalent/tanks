@@ -9,9 +9,11 @@ module SetupWindow
     self.caption = 'Client' if client?
   end
 
-  def setup_tanks
+  def setup_tanks(multiplayer)
     @s_tank = Tank.new(self, width / 2, height / 2, @tanks)
-    @c_tank = Tank.new(self, width / 2 + 50, height / 2, @tanks)
+    if multiplayer
+      @c_tank = Tank.new(self, width / 2 + 50, height / 2, @tanks)
+    end
     dist = 100
     bots_places = [[dist, dist], [SCREEN_WIDTH - dist, dist],
       [SCREEN_WIDTH - dist, SCREEN_HEIGHT - dist], [dist, SCREEN_HEIGHT - dist]]
@@ -24,10 +26,12 @@ module SetupWindow
     @miss.play
     bullet = find_bullet_by_shape(bullet_shape)
     if bullet.present?
-      @server_state['events'] <<
-        { event_type: :destroy,
-          data: { figure_type: :bullet, bullet_id: bullet.id }
-        }
+      if @multiplayer
+        @server_state['events'] <<
+          { event_type: :destroy,
+            data: { figure_type: :bullet, bullet_id: bullet.id }
+          }
+      end
       bullet.destroy
     end
   end
@@ -38,10 +42,12 @@ module SetupWindow
       destroy_bullet(bullet_shape)
       tank = find_tank_by_shape(tank_shape)
       if tank.present?
-        @server_state['events'] <<
-          { event_type: :destroy,
-            data: { figure_type: :tank, tank_id: tank.id }
-          }
+        if @multiplayer
+          @server_state['events'] <<
+            { event_type: :destroy,
+              data: { figure_type: :tank, tank_id: tank.id }
+            }
+        end
         tank.destroy
       end
     end

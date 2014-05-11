@@ -3,6 +3,7 @@ module Constants
   TICK = 1.0/60.0
   PORT = 2000
   HOSTNAME = 'localhost'
+  FONT_PATH = '/usr/share/fonts/comic.ttf'
 end
 
 module ZOrder
