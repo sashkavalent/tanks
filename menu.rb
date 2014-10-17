@@ -1,6 +1,6 @@
 class Menu
   attr_reader :pointer
-  MENU_POINTS = ['1 игрок', '2 игрока (сервер)', '2 игрока (клиент)', 'Опции', 'Выход']
+  MENU_POINTS = ['1 игрок', '2 игрока (сервер)', '2 игрока (клиент)', 'Описание', 'Выход']
 
   def initialize(window)
     @window = window
@@ -18,7 +18,7 @@ class Menu
     when 0 then @window.start_game_mode(false)
     when 1 then @window.start_server_mode
     when 2 then @window.start_client_mode
-    when 3 then nil
+    when 3 then @window.start_options_mode
     when 4 then @window.close
     end
   end

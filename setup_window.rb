@@ -1,12 +1,12 @@
 module SetupWindow
   SCREEN_WIDTH = 640
-  SCREEN_HEIGHT = 480
+  SCREEN_HEIGHT = 490
 
   private
 
   def set_caption
-    self.caption = 'Server' if server?
-    self.caption = 'Client' if client?
+    self.caption = 'Tanks'# if server?
+    # self.caption = 'Client' if client?
   end
 
   def setup_tanks(multiplayer)
@@ -124,12 +124,16 @@ module SetupWindow
       y =  SCREEN_HEIGHT - BORDER_WIDTH / 2 - BORDERS_INTERVAL
       create_border(body, shape_vertices, gc, x, y)
     end
-    (SCREEN_HEIGHT / distance).round.times do |i|
+    (SCREEN_HEIGHT / distance - 1).round.times do |i|
       y = distance * i + BORDERS_INTERVAL + BORDER_WIDTH / 2
       x =  BORDER_WIDTH / 2 + BORDERS_INTERVAL
       create_border(body, shape_vertices, gc, x, y)
       x =  SCREEN_WIDTH - BORDER_WIDTH / 2 - BORDERS_INTERVAL
       create_border(body, shape_vertices, gc, x, y)
+      if i < 10 && i != 0
+        x =  SCREEN_WIDTH - BORDER_WIDTH / 2 - BORDERS_INTERVAL - 200
+        create_border(body, shape_vertices, gc, x, y)
+      end
     end
     gc.draw(background)
   end

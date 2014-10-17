@@ -15,7 +15,7 @@ class TextField < Gosu::TextInput
     @window, @font, @x, @y = window, font, x, y
 
     # Start with a self-explanatory text in each field.
-    self.text = "Enter server IP"
+    self.text = Constants::HOSTNAME
   end
 
   # Example filter method. You can truncate the text to employ a length limit (watch out

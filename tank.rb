@@ -1,5 +1,5 @@
 class Tank < Figure
-  PATH_TO_IMAGE = 'media/tank.jpg'
+  PATH_TO_IMAGE = 'media/green_tank.jpg'
   attr_reader :score, :bullets
   @@shot = nil
 
@@ -13,6 +13,11 @@ class Tank < Figure
 
   def destroy
     super
+    players = @aggregator.select { |tank| !(tank.is_a? TankBot) }
+    bots = @aggregator.select { |tank| tank.is_a? TankBot }
+    if bots.blank? || players.blank?
+      @window.start_game_over_mode
+    end
     @destroyed = true
   end
 

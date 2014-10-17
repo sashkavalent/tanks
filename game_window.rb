@@ -15,7 +15,19 @@ class GameWindow < Gosu::Window
     set_caption
   end
 
+  def start_options_mode
+    @mode = :options
+    @options = Options.new(self)
+  end
+
+  def start_game_over_mode
+    @mode = :game_over
+    @font = Gosu::Font.new(self, Constants::FONT_PATH, 55)
+    @game_over_message = 'Игра окончена'
+  end
+
   def start_menu_mode
+    # @tcp_server.try(:close)
     @mode = :menu
     @menu = Menu.new(self)
   end
@@ -26,13 +38,21 @@ class GameWindow < Gosu::Window
   end
 
   def start_server_mode
-    server = TCPServer.open(Constants::PORT)
-    # Thread.new do
-      @client = server.accept
+    begin
+      @tcp_server.close
+    rescue Exception => e
+      nil
+    end
+    begin
+      @tcp_server = TCPServer.open(Constants::PORT)
+      sleep 0.5
+    rescue Exception => e
+      nil
+    end
+    wait(5, @tcp_server) do
+      @client = @tcp_server.accept
       start_game_mode(true)
-    # end
-    # sleep 0.5
-    # window = GameWindow.new(nil, server.accept)
+    end
   end
 
   def start_game_mode(multiplayer)
@@ -65,6 +85,15 @@ class GameWindow < Gosu::Window
     !!@client || !@multiplayer
   end
 
+  def wait(timeout = 3, closable = nil, &block)
+    begin
+      timeout(timeout) { yield  }
+    rescue Timeout::Error
+      closable.try(:close)
+      self.start_menu_mode
+    end
+  end
+
   private
 
   def update
@@ -78,7 +107,9 @@ class GameWindow < Gosu::Window
           @server_state['bots'] = bots.map(&:serialize)
           @client.puts(@server_state.to_json)
           @server_state = { 'events' => []}
-          @client_state = JSON.parse(@client.gets)
+          wait(5, @tcp_server) do
+            @client_state = JSON.parse(@client.gets)
+          end
         end
 
         bots_move
@@ -86,12 +117,18 @@ class GameWindow < Gosu::Window
       elsif client?
         @server.puts @client_state.to_json
         @client_state = {}
-        @server_state = JSON.parse(@server.gets)
+        wait do
+          @server_state = JSON.parse(@server.gets)
+        end
         @server_state['events'].each { |event| perform_remote_event(event) }
-        @c_tank.deserialize(@server_state['c_tank'])
-        @s_tank.deserialize(@server_state['s_tank'])
-        @server_state['bots'].each.with_index { |bot_state, i| bots[i].deserialize(bot_state) }
-        players_move
+        begin
+          @c_tank.deserialize(@server_state['c_tank'])
+          @s_tank.deserialize(@server_state['s_tank'])
+          @server_state['bots'].each.with_index { |bot_state, i| bots[i].deserialize(bot_state) }
+          players_move
+        rescue Exception => e
+          self.start_menu_mode
+        end
       end
       bullets_move
     end
@@ -154,15 +191,23 @@ class GameWindow < Gosu::Window
     @bullets.each(&:move)
   end
 
+  def draw_game
+    @background_image.draw(0, 0, ZOrder::Background)
+    @tanks.each(&:draw)
+    @bullets.each(&:draw)
+  end
+
   def draw
     case @mode
     when :game
-      @background_image.draw(0, 0, ZOrder::Background)
-      @tanks.each(&:draw)
-      @bullets.each(&:draw)
-      # @font.draw("Score: #{@score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xffffff00)
+      draw_game
+    when :game_over
+      draw_game
+      @font.draw(@game_over_message, self.width / 2 - 140, self.height / 2 - 40, ZOrder::UI, 1.0, 1.0, 0xffffff00)
     when :menu
       @menu.draw
+    when :options
+      @options.draw
     when :ip_input
       @ip_input.draw
     end
@@ -171,8 +216,10 @@ class GameWindow < Gosu::Window
   def button_down(id)
     if id == Gosu::KbLeftControl then binding.pry end
     case @mode
+    when :game_over
+      if id == Gosu::KbEscape then start_menu_mode end
     when :game
-      if id == Gosu::KbEscape then @mode = :menu end
+      if id == Gosu::KbEscape then start_menu_mode end
       if id == Gosu::KbSpace
         if server?
           @s_tank.fire
@@ -182,6 +229,8 @@ class GameWindow < Gosu::Window
       end
     when :menu
       @menu.button_down(id)
+    when :options
+      @options.button_down(id)
     when :ip_input
       @ip_input.button_down(id)
     end
